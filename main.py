@@ -16,7 +16,7 @@ from environment import SINR_environment
 from DQNAgent import DQNAgent
 
 import os
-os.chdir('/Users/farismismar/Desktop/E_Projects/UT Austin Ph.D. EE/Papers/Deep Reinforcement Learning in RF Optimization in mmWave Propagation/')
+os.chdir('/Users/farismismar/Desktop/E_Projects/UT Austin Ph.D. EE/Papers/2- Deep Reinforcement Learning in RF Optimization in mmWave Propagation/')
 
 seed=1
 
@@ -72,8 +72,8 @@ def average_SINR_dB(random_state, g_ant=2, num_users=50, load=0.85, faulty_feede
     #####
          
     
-    # Distances in meters.
-    dist = LA.norm((X_bs - u_1, Y_bs - u_2), axis=0)
+    # Distances in kilometers.
+    dist = LA.norm((X_bs - u_1, Y_bs - u_2), axis=0) / 1000.
     
     ptmax = 2 # in Watts
     
@@ -274,11 +274,6 @@ for e in np.arange(EPISODES):
             break
         if len(agent.memory) > batch_size:
             agent.replay(batch_size)
-
-    if (e  + 1== 3):
-        print(action_progress)
-        print(score_progress)
-        break
         
     if not done:
         print("episode: {}/{} failed to achieve target."
@@ -286,37 +281,3 @@ for e in np.arange(EPISODES):
     
 plt.ioff()
 plt.show(block=True)
-
-
-
-'''
-
-######
-# Polar sampling
-#####
-radii = np.zeros(n) # the radial coordinate of the points
-
-for i in range(n):
-    radii[i] = r * (np.sqrt(u_1[i]))
-
-angle = np.zeros(n) # the angular coordinate of the points
-for i in range(n):
-    angle[i] = 2 * pi * u_2[i]
-
-""" Plots """
-fig = plt.gcf()
-ax = fig.gca()
-plt.xlim(-300, 300)
-plt.ylim(-300, 300)
-circ = plt.Circle((0, 0), radius=r, color='r', linewidth=2, fill=False)
-# Cartesian Coordinates
-x = np.zeros(n)
-y = np.zeros(n)
-for i in range(n):
-    x[i] = radii[i] * np.cos(angle[i])
-    y[i] = radii[i] * np.sin(angle[i])
-
-plt.plot(x,y,'bo')
-ax.add_artist(circ)
-plt.show()
-'''
