@@ -70,7 +70,6 @@ def average_SINR_dB(random_state, g_ant=2, num_users=50, load=0.85, faulty_feede
     # Cartesian sampling
     #####
          
-    
     # Distances in kilometers.
     dist = np.power((np.power(X_bs-u_1, 2) + np.power(Y_bs-u_2, 2)), 0.5) / 1000. #LA.norm((X_bs - u_1, Y_bs - u_2), axis=0) / 1000.
     
@@ -221,7 +220,6 @@ for e in np.arange(EPISODES):
         else:
             reward = 0.
 
-
         score += reward # add the output of the network to the total score, which is negative
         action_progress.append('Network: Action {}'.format(action_network))
         
@@ -265,19 +263,21 @@ for e in np.arange(EPISODES):
     #Do some nice plotting here
     sinr_min = np.min(score_progress)
     sinr_max = np.max(score_progress)
-#    plt.figure()
     plt.plot(score_progress, marker='o', linestyle='--', color='b')
-    plt.xlabel('Time / Epoch')
+    plt.xlabel('Turns')
     plt.ylabel('Current SINR (dB)')
     plt.title('Episode {} / {}'.format(e + 1, EPISODES))
     plt.grid(True)
     plt.ylim((sinr_min - 1, sinr_max))
     if (e == 1):
-        plt.savefig('figures/episode_1.pdf', format='pdf')
-    if (e == EPISODES - 1):
-        plt.savefig('figures/episode_final.pdf', format='pdf')
-    if (e == best_episode):
-        plt.savefig('figures/episode_best.pdf', format='pdf')
+        plt.savefig('figures/episode_0.pdf', format='pdf')
+    if (e == 83):
+        plt.savefig('figures/episode_84.pdf', format='pdf')
+    if (e == 88):
+        plt.savefig('figures/episode_89.pdf', format='pdf')
+    if (e == 89):
+        plt.savefig('figures/episode_best.pdf', format='pdf') #90
+        print(score_progress)
     plt.show()
     if not done:
         print("episode: {}/{} failed to achieve target."
