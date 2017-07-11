@@ -18,7 +18,7 @@ from DQNAgent import DQNAgent
 import os
 os.chdir('/Users/farismismar/Desktop/E_Projects/UT Austin Ph.D. EE/Papers/2- Deep Reinforcement Learning in RF Optimization in mmWave Propagation/')
 
-seed=1
+seed = 1
 
 def cost231(distance, f, h_R, h_B):
     C = 0
@@ -49,7 +49,6 @@ def plot_network(dX, dY, X_bs, Y_bs, u_1, u_2):
     plt.savefig('figures/network.pdf', format='pdf')
     plt.show()
     
-    
 def average_SINR_dB(random_state, g_ant=2, num_users=50, load=0.85, faulty_feeder_loss=0.0, beamforming=False, plot=False):
 
     np.random.seed(random_state)
@@ -73,7 +72,7 @@ def average_SINR_dB(random_state, g_ant=2, num_users=50, load=0.85, faulty_feede
          
     
     # Distances in kilometers.
-    dist = LA.norm((X_bs - u_1, Y_bs - u_2), axis=0) / 1000.
+    dist = np.power((np.power(X_bs-u_1, 2) + np.power(Y_bs-u_2, 2)), 0.5) / 1000. #LA.norm((X_bs - u_1, Y_bs - u_2), axis=0) / 1000.
     
     ptmax = 2 # in Watts
     
@@ -151,6 +150,7 @@ baseline_SINR_dB = average_SINR_dB(plot=True, random_state=seed)
 # - Neighboring cell down (done by network)
 
 state_count = action_count = 4
+R_max = 3.
 
 # Network
 player_A_scenario_0_SINR_dB = average_SINR_dB(g_ant=16, num_users=65, load=0.85, faulty_feeder_loss=0.0, beamforming=False, random_state=seed) # reduces baseline.
@@ -181,7 +181,7 @@ for i in np.arange(state_count):
 
 # Now proceed to Deep Q learning for Player B only
 baseline_SINR_dB = 2
-final_SINR_dB = baseline_SINR_dB + 5
+final_SINR_dB = baseline_SINR_dB + 4 # this is the improvement
 
 env = SINR_environment(baseline_SINR_dB, final_SINR_dB, R_B, random_state=seed)
 state_size = env.observation_space.shape[0]
@@ -214,8 +214,9 @@ for e in np.arange(EPISODES):
 
         valid_move = (R_A[state_network] <= 0)
         if (any(valid_move)):
-            np.random.shuffle(action_space_network)
-            action_network = action_space_network[0]
+            valid_action_space_network = action_space_network[valid_move]
+            np.random.shuffle(valid_action_space_network)
+            action_network = valid_action_space_network[0]
             reward = R_A[state_network, action_network]
         else:
             reward = 0.
@@ -231,7 +232,7 @@ for e in np.arange(EPISODES):
         action = agent.act(state)
         next_state, reward = env.step(action)
         done = (score >= final_SINR_dB)
-        reward = reward if not done else 5. # game over and AI RF won.
+        reward = reward if not done else R_max # game over and AI RF won.
         next_state = np.reshape(next_state, [1, state_size])
         agent.remember(state, action, reward, next_state, done)
         state = next_state
@@ -247,23 +248,7 @@ for e in np.arange(EPISODES):
             if (time < min_time):
                 best_episode = e
                 min_time = time
-            # Do some nice plotting here
-            sinr_min = np.min(score_progress)
-            sinr_max = np.max(score_progress)
-            plt.figure()
-            plt.plot(score_progress, marker='o', linestyle='--', color='b')
-            plt.xlabel('Time / Epoch')
-            plt.ylabel('Current SINR (dB)')
-            plt.title('Episode {} / {}'.format(e + 1, EPISODES))
-            plt.grid(True)
-            plt.ylim((sinr_min - 1, sinr_max))
-            if (e == 0):
-                plt.savefig('figures/episode_0.pdf', format='pdf')
-            if (e == EPISODES - 1):
-                plt.savefig('figures/episode_final.pdf', format='pdf')
-            if (e == best_episode):
-                plt.savefig('figures/episode_best.pdf', format='pdf')
-            plt.show()
+
             print("episode: {}/{}, score: {}, e: {:.2}"
               .format(e + 1, EPISODES, time, agent.epsilon))
             state_progress.append('end')
@@ -271,13 +256,31 @@ for e in np.arange(EPISODES):
             #print(state_progress)
             print('Action progress: ')
             print(action_progress)
+            state_progress = ['start']
+            action_progress = ['start']
             break
         if len(agent.memory) > batch_size:
             agent.replay(batch_size)
-        
+                
+    #Do some nice plotting here
+    sinr_min = np.min(score_progress)
+    sinr_max = np.max(score_progress)
+#    plt.figure()
+    plt.plot(score_progress, marker='o', linestyle='--', color='b')
+    plt.xlabel('Time / Epoch')
+    plt.ylabel('Current SINR (dB)')
+    plt.title('Episode {} / {}'.format(e + 1, EPISODES))
+    plt.grid(True)
+    plt.ylim((sinr_min - 1, sinr_max))
+    if (e == 1):
+        plt.savefig('figures/episode_1.pdf', format='pdf')
+    if (e == EPISODES - 1):
+        plt.savefig('figures/episode_final.pdf', format='pdf')
+    if (e == best_episode):
+        plt.savefig('figures/episode_best.pdf', format='pdf')
+    plt.show()
     if not done:
         print("episode: {}/{} failed to achieve target."
              .format(e + 1, EPISODES))
-    
 plt.ioff()
 plt.show(block=True)
