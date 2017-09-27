@@ -15,6 +15,8 @@ from matplotlib import rc
 from environment import SINR_environment
 from DQNAgent import DQNAgent
 
+SINR_MIN = -20 # dB
+
 import os
 os.chdir('/Users/farismismar/Desktop/E_Projects/UT Austin Ph.D. EE/Papers/2- Deep Reinforcement Learning in RF Optimization in mmWave Propagation/')
 
@@ -221,6 +223,9 @@ for e in np.arange(EPISODES):
             reward = 0.
 
         score += reward # add the output of the network to the total score, which is negative
+        if (score < SINR_MIN): 
+            score = SINR_MIN  # we have a floor for the SINR (i.e., a lower bound)
+            
         action_progress.append('Network: Action {}'.format(action_network))
         
         score_progress.append(score) 
