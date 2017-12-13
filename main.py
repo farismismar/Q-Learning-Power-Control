@@ -15,7 +15,7 @@ from matplotlib import rc
 from environment import SINR_environment
 from DQNAgent import DQNAgent
 
-SINR_MIN = -20 # dB
+SINR_MIN = -100 # dB
 
 import os
 os.chdir('/Users/farismismar/Desktop/E_Projects/UT Austin Ph.D. EE/Papers/2- Deep Reinforcement Learning in RF Optimization in mmWave Propagation/')
