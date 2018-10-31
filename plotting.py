@@ -14,7 +14,7 @@ import scipy.special
 import matplotlib.ticker as tick
 
 import os
-os.chdir('/Users/farismismar/Desktop/E_Projects/UT Austin Ph.D. EE/Papers/4- Q-Learning Algorithm for VoLTE Closed-Loop Power Control in Indoor Small Cells')
+os.chdir('/Users/farismismar/Desktop/4- Q-Learning Algorithm for VoLTE Closed-Loop Power Control in Indoor Small Cells')
 
 qfunc = lambda x: 0.5-0.5*scipy.special.erf(x/np.sqrt(2))
 
@@ -40,7 +40,7 @@ def ber_modified(sinr, delta=0, q=140):
 #plot_baseline, = plt.semilogy(sinr, ber_modified(2.*sinr), linestyle='-', color='b', label='Average user $i$ (FPA)')
 #
 ## Note the improvement was computed from Fig 11 in the paper.
-##plot_vpc, = plt.semilogy(sinr, ber_modified(2.*sinr, 2/20+3*18/20), linestyle='-', color='r', label='Average user $i$ (Vanilla power control)')
+##plot_vpc, = plt.semilogy(sinr, ber_modified(2.*sinr, 2/20+3*18/20), linestyle='-', color='r', label='Average user $i$ (proposed power control)')
 #plot_dpc, = plt.semilogy(sinr, ber_modified(2.*sinr, 3*18/20), linestyle='-', color='g', label='Average user $i$ (DQN)')
 #
 #plt.grid(True,which="both")#,ls="-", color='0.65')
@@ -55,34 +55,32 @@ def ber_modified(sinr, delta=0, q=140):
 #plt.show()
 #plt.close()
 
-
-####################################################################################
-# 7/26/2018 run
-####################################################################################
+#######
+# 10/30/2018 run for Asilomar
 '''
-Episode 879 finished after 16 timesteps (and epsilon = 0.01).
+Episode 707 finished after 16 timesteps (and epsilon = 0.01).
 Network alarms progress: 
-[0.0, -5.0, -0.0, -3.0, 0, 0.0, 0, 0, 0, -3.27, 0, 0, 0, 0, 0, 3.0]
+[0, 0.0, 0.0, -3.0, 0, 0.0, -0.0, 0.0, 0, 0, -6.28, 0, -0.0, 3.0, 0, 6.28]
 PC state progress: 
-['start', 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 'end']
+['start', 0, 2, 1, 0, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 'end']
 PC action progress: 
-[-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+[-1, 1, 0, -1, 1, 1, 1, 1, 1, 1, -1, 1, 1, 1, 1, 1]
 SINR progress: 
-[4.0, 3.0, -1.0, 0.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 0.73, 1.73, 2.73, 3.73, 4.73, 5.73, 8.73]
-'''
-'''
---------------------------------------------------------------------------------
-Episode 879 finished after 20 timesteps.
-Action progress: 
-['start', 0, 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'network', 'end']
+[4.0, 3.0, 4.0, 4.0, -0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, -1.28, -0.28, 0.72, 4.72, 5.72, 13.0]
+
+
+FPA: 
+    Episode 707 finished after 20 timesteps.
 SINR progress: 
-[4.0, 4.0, 4.0, 4.0, 4.0, 0.73, 0.73, 0.73, -2.27, 1.0, 1.0, -3, -3.0, -3.0, -3.0, -3.0, -3.0, 0.0, 0.0, 0.0, 0.0, 'end']
+[4.0, 4.0, 1.0, 1.0, 1.0, 1.0, -3, -3, -3, -3.0, -3.0, -3.0, -3.0, 2.0, -3.0, 2.0, 2.0, -3, 0.0, 0.0, 0.0, 'end']
 '''
+
 
 
 # Plot PC for both algorithms
+# TODO: Obtain TPC from the proposed PC
 tau = 20
-vanilla_tpc = [0,-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,0,0,0] # pad with zeros
+tpc = [0, 2, 1, 0, 2, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1,0,0,0] # pad with zeros
 
 time= np.arange(tau)
 
@@ -91,8 +89,8 @@ plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 plt.grid(True)
 fpa = ax1.axhline(y=0, xmin=0, color="green", linewidth=1.5, label='Power commands -- FPA')
-vanilla, = ax1.step(np.arange(len(vanilla_tpc)), vanilla_tpc, color='b', linewidth=2.5, label='Power commands -- Proposed')#
-#deep, = ax1.step(np.arange(len(deepq_tpc)), deepq_tpc, color='b', label='Power commands -- DQN')#
+proposed, = ax1.step(np.arange(len(tpc)), tpc, color='b', linewidth=2.5, label='Power commands -- Proposed')#
+
 ax1.set_xlabel('Transmit time interval (TTI)')
 ax1.set_ylabel('Number of power commands')
 ax1.set_yticks([-1,0,1,2,3])
@@ -101,7 +99,7 @@ ax1.xaxis.set_ticks(np.arange(0, tau + 1))
 #ax2 = ax1.twinx()
 #sinr, = plt.plot(time, SINR, linestyle='-', color='b', label='DL SINR')
 plt.title(r'Power Commands ')
-plt.legend(handles=[fpa, vanilla])# vanilla, deep])
+plt.legend(handles=[fpa, proposed])# proposed, deep])
 #ax2.set_ylabel('Average DL SINR $\gamma_{DL}$(dB)')
 
 plt.xlim(xmin=0,xmax=tau)
@@ -118,11 +116,6 @@ T = tau #6 * 1e3 * tau # 120 sec
 
 sinr = np.linspace(-2,14,100)
 
-#def scale(per):  
-    #per_scaled = [0.005 if i < -2 else (0.5 * (-2 - i) / (-2 - max(per))) for i in per]
-#    per_scaled = [0.005 + i for i in per_scaled] # 0.05% is the minimum value
-    
- #   return per_scaled
 
 # Obtain the corrective/improvement factors from the PC plot before you run this snipped
 def payload(T, tau=20, NAF=0.5, Lamr=0, Lsid=61): # T and tau in ms, Lamr/Lsid is in bits
@@ -130,7 +123,8 @@ def payload(T, tau=20, NAF=0.5, Lamr=0, Lsid=61): # T and tau in ms, Lamr/Lsid i
     return NAF * Lamr * np.ceil(T/tau) + (1 - NAF) * Lsid * np.ceil(T/(8*tau))
 
 fig = plt.figure(figsize=(7,5))
-for improvement in np.array([0, -1 * 1/20 +1 * 15/20 ]): # 0 improvement is the : 
+# TODO: compute improvement due to PC as a weighted av
+for improvement in np.array([0, 12/20*1 + 3/20*2 + 5/20*0  ]): # find this ratio as a weighted av from PC 
     result = []
     
     for framelength in np.arange(1000): # 1000 taus
@@ -190,8 +184,9 @@ baseline_SINR_dB = 4.0
 final_SINR_dB = baseline_SINR_dB + 2.0 # this is the improvement
 max_timesteps_per_episode = 20
 
-score_progress_cl = [4.0, 3.0, -1.0, 0.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 0.73, 1.73, 2.73, 3.73, 4.73, 5.73, 8.73]
-score_progress_fpa = [4.0, 4.0, 4.0, 4.0, 4.0, 0.73, 0.73, 0.73, -2.27, 1.0, 1.0, -3, -3.0, -3.0, -3.0, -3.0, -3.0, 0.0, 0.0, 0.0, 0.0]
+# TODO: Fill in vectors
+score_progress_cl = [4.0, 3.0, 4.0, 4.0, -0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, -1.28, -0.28, 0.72, 4.72, 5.72, 9]
+score_progress_fpa = [4.0, 4.0, 1.0, 1.0, 1.0, 1.0, -3, -3, -3, -3.0, -3.0, -3.0, -3.0, 2.0, -3.0, 2.0, 2.0, -3, 0.0, 0.0, 0.0]
 
 
 # Do some nice plotting here

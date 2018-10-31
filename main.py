@@ -21,9 +21,7 @@ from QLearningAgent import QLearningAgent as QLearner
 SINR_MIN = -3 #dB  
 baseline_SINR_dB = 4.0
 final_SINR_dB = baseline_SINR_dB + 2.0 # this is the improvement
-MAX_EPISODES = 1000 #725 # worked fine 688, 776, 879 is an excellent episode
-
-
+MAX_EPISODES = 707 # successful ones [85, 115, 129, 258, 259, 284, 285, 286, 707]
 N_interferers = 4 # this is a hardcoded parameter: 4 base stations.
 
 L_geom = 10. #  meters
@@ -41,11 +39,12 @@ NRB = 100 # Number of PRBs in the 20 MHz channel-- needs to be revalidated.
 B = 20e6 # 20 MHz
 T = 290 # Kelvins/
 K = 1.38e-23
-num_antenna_streams = 2 # actually this N_s = min(N_T, N_R) for diversity purposes
-N0 = K*T*B*1e3
+num_antenna_streams = None # Not needed
+N0 = K*T*B*1e3 # Thermal noise.  Assume Noise Figure = 0 dB.
+
 
 import os
-os.chdir('/Users/farismismar/Desktop/E_Projects/UT Austin Ph.D. EE/Papers/4- Q-Learning Algorithm for VoLTE Closed-Loop Power Control in Indoor Small Cells')
+os.chdir('/Users/farismismar/Desktop/4- Q-Learning Algorithm for VoLTE Closed-Loop Power Control in Indoor Small Cells')
 
 seed = 0 
 
@@ -64,40 +63,23 @@ def cost231(distance, f, h_R, h_B):
 
 def plot_pc_actions(tpc, episode):
     tau = 20
-    #del tpc[-1] # get rid of 'end'
-    
 
-#    tpc = tpc[1::2]
     tpc.insert(0, 0)
     tpc = np.array(tpc)
    
-    # Convert actions to actual SINR changes
-#    tpc[tpc == 0] = player_B_contribs[0]
-#    tpc[tpc == 1] = player_B_contribs[1]
-#    tpc[tpc == 2] = player_B_contribs[2]
-#    tpc[tpc == 3] = player_B_contribs[3]
-#    tpc[tpc == 4] = player_B_contribs[4]
-    
-    
-   # time = np.arange(tau)
-    
     fig, ax1 = plt.subplots(figsize=(7,5))
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
     plt.grid(True)
     fpa = ax1.axhline(y=0, xmin=0, color="green", linewidth=1.5, label='Power commands -- FPA')
-    #vanilla, = ax1.step(np.arange(len(vanilla_tpc)), vanilla_tpc, color='b', linewidth=2.5, label='TPC -- Vanilla')#
     closedloop, = ax1.step(np.arange(len(tpc)), tpc, color='b', label='Power commands -- Proposed')#
     ax1.set_xlabel('Transmit Time Interval (1 ms)')
     ax1.set_ylabel('Power commands (dB)')
     ax1.set_yticks([-3,-2,-1,0,1,2,3])
     ax1.xaxis.set_major_formatter(tick.FormatStrFormatter('%0g'))
     ax1.xaxis.set_ticks(np.arange(0, tau + 1))
-    #ax2 = ax1.twinx()
-    #sinr, = plt.plot(time, SINR, linestyle='-', color='b', label='DL SINR')
     plt.title(r'Episode $\tau = {}$ -- Power Commands '.format(episode))
     plt.legend(handles=[fpa, closedloop])# vanilla, deep])
-    #ax2.set_ylabel('Average DL SINR $\gamma_{DL}$(dB)')
     
     plt.xlim(xmin=0,xmax=tau)
     
@@ -108,9 +90,6 @@ def plot_pc_actions(tpc, episode):
 
 
 def plot_network(dX, dY, X_bs, Y_bs, u_1, u_2):
-    """ Plots """
-#    fig = plt.gcf()
-#    ax = fig.gca()
     plt.figure(figsize=(5,5))
     plt.rc('text', usetex=True)
     plt.rc('font', family='serif')
@@ -177,7 +156,7 @@ def average_SINR_dB(random_state, g_ant=2, num_users=50, load=0.7, faulty_feeder
     path_loss = np.array(cost231(dist, f, h_R, h_B))
     
     ptmax = 10*np.log10(pt_max * 1e3) # to dBm
-    pt = ptmax - np.log10(NRB) + g_ant - ins_loss - faulty_feeder_loss + 10 * np.log10(num_antenna_streams) # - np.log10(12)
+    pt = ptmax - np.log10(NRB) + g_ant - ins_loss - faulty_feeder_loss #+ 10 * np.log10(num_antenna_streams) # - np.log10(12)
     pr_RB = pt - path_loss + g_ue # received reference element power (almost RSRP depending on # of antenna ports) in dBm.
   
     pr_RB_mW = 10 ** (pr_RB / 10) # in mW the total power of the PRB used to transmit packets
@@ -189,9 +168,6 @@ def average_SINR_dB(random_state, g_ant=2, num_users=50, load=0.7, faulty_feeder
     SINR = []
 
     # Generate some thermal noise
-  #  sigma = np.sqrt(K * T * B * 1e3) # in mWatts
-   # mu = 0.
-    
     SINR = []
     for i in np.arange(len(dist)): # dist is a distance vector of UE i
         ICI = 0 # interference on the ith user
@@ -209,7 +185,7 @@ def average_SINR_dB(random_state, g_ant=2, num_users=50, load=0.7, faulty_feeder
 
 # This formula is from Computation of contribution of action νin= 2 in paper.
 def compute_SINR_due_to_neighbor_loss():
-    numerator =  10**((pt_max - np.log10(NRB) + g_ant - ins_loss + 10 * np.log10(num_antenna_streams))/10)
+    numerator =  10**((pt_max - np.log10(NRB) + g_ant - ins_loss)/10)
     denom = (N0 + (N_interferers - 1) * pt_max)
     return 10*np.log10(numerator / denom)
 
@@ -251,10 +227,6 @@ succ = [] # a list to save the good episodes
 
 
 def get_A_contrib():
-    #  array([ 0.,  0.,  0.,  0.,  0., -3., -5., -2.,  3.,  5.,  2.])
-    # [ 0.        ,  0.        ,  0.        , -0.        ,  3.        ,
-      #  3.27121255,  5.        ,  0.        , -3.        , -3.27121255,
-      # -5.        ])  # The number of zeros is 5/11.
     # Draw a number at random
     n = np.random.randint(action_count_a)
 
@@ -281,7 +253,7 @@ def get_A_contrib():
 def run_agent(env, plotting = False):
     global alarm_reg
     max_episodes_to_run = MAX_EPISODES # needed to ensure epsilon decays to min
-    max_timesteps_per_episode = 20 # one AMR frame.
+    max_timesteps_per_episode = 20 # one AMR frame ms.
 
     retainability = [] # overall
   
@@ -306,8 +278,6 @@ def run_agent(env, plotting = False):
             # Let Network (Player A) function totally random
             network_issue = get_A_contrib()
             cell_score += network_issue #player_A_contribs[np.random.randint(action_count_a)]
-            #state_progress.append(np.round(cell_score, 1))
-            #score_progress.append(np.round(cell_score, 1))
             action_progress.append('network')  # The network action is empty
             
             # Perform the power control action and observe the new state.
@@ -336,6 +306,7 @@ def run_agent(env, plotting = False):
             if done:
                 if timestep_index < 15: # premature ending -- cannot finish sooner than 15 episodes
                     aborted = True
+                    successful = False
                 else:                       # ending within time.
                    successful = True
                    reward = R_max
@@ -370,8 +341,6 @@ def run_agent(env, plotting = False):
                 if (plotting):
                      # Do some nice plotting here
                     fig = plt.figure()
-    #                sinr_min = np.min(score_progress)
-    #                sinr_max = np.max(score_progress)
     
                     plt.rc('text', usetex=True)
                     plt.rc('font', family='serif')
@@ -472,7 +441,6 @@ def run_agent_fpa(env, plotting = False):
     max_episodes_to_run = MAX_EPISODES # needed to ensure epsilon decays to min
     max_timesteps_per_episode = 20 # one AMR frame.
 
-    retainability = [] # overall
     for episode_index in np.arange(max_episodes_to_run):    
         cell_score = baseline_SINR_dB
 
@@ -482,7 +450,7 @@ def run_agent_fpa(env, plotting = False):
         score_progress = [cell_score]
         alarm_reg = [0,0,0]      
       #  network_progress = []
-        
+        retainability = [] # overall
         for timestep_index in range(max_timesteps_per_episode):
             # Let Network (Player A) function totally random
             network_issue = get_A_contrib()
@@ -540,13 +508,13 @@ def run_agent_fpa(env, plotting = False):
                     
                 print('-'*80)       
                 break                    
-        # For multi-plotting purposes
-        if (episode_index + 1 == 879):# or episode_index + 1 == 2):
-            file = open("plot_sinr_fpa.txt","a") 
-            for item in score_progress:
-                file.write("{},".format(item))
-            file.write("\n")
-            file.close()
+#        # For multi-plotting purposes
+#        if (episode_index + 1 == 879):# or episode_index + 1 == 2):
+#            file = open("plot_sinr_fpa.txt","a") 
+#            for item in score_progress:
+#                file.write("{},".format(item))
+#            file.write("\n")
+#            file.close()
 
             
     print('Overall retainability')
@@ -556,7 +524,7 @@ def run_agent_fpa(env, plotting = False):
     
 ########################################################################################
     
-#run_agent(env, True)  # Overall retainability 85.77511433527835%
-run_agent_fpa(env, False) # 73.36%
+#run_agent(env, True)  # Overall retainability 78.75%  <- to obtain, run again and fix the max episode to the optimal
+run_agent_fpa(env, False) # 55.00%
 
 ########################################################################################
