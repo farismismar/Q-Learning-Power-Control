@@ -106,6 +106,35 @@ def plot_pc_actions(tpc, episode):
     plt.show(fig)
     plt.close(fig)
 
+def plot_rewards(rewards):
+    fig = plt.figure(figsize=(8,5))
+    params = {'backend': 'ps',
+              'axes.labelsize': 12, # fontsize for x and y labels (was 10)
+              'axes.titlesize': 12,
+              'font.size': 10, # was 10
+              'legend.fontsize': 12, # was 10
+              'xtick.labelsize': 10,
+              'ytick.labelsize': 10,
+              'text.usetex': True,
+              'font.family': 'serif'
+    }
+    
+    plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
+    matplotlib.rc('figure', titlesize=10) 
+    matplotlib.rcParams.update(params)
+  
+    plt.grid(True)
+    plt.plot(rewards)
+    plt.title(r'Average $Q$')
+    plt.xlabel(r'Training epochs $\tau$')
+    plt.ylabel(r'Average Action-Value $Q$')
+       
+    fig.tight_layout()
+    plt.savefig('figures/averageQ.pdf', format="pdf")
+    plt.show(fig)
+    plt.close(fig)
+
+
 
 def plot_network(dX, dY, X_bs, Y_bs, u_1, u_2):
     plt.figure(figsize=(5,5))
@@ -272,14 +301,13 @@ def run_agent(env, plotting=False):
     max_timesteps_per_episode = 20 # one AMR frame ms.
 
     retainability = [] # overall
-  
+    avgq_list = [agent.averageQ()]  
+    
     successful = False
     for episode_index in np.arange(max_episodes_to_run):
         state = env.reset()
         reward = R_min
         action = agent.begin_episode(state)
-        total_reward = R_min
-        rewards_list = [R_min]
 
         cell_score = baseline_SINR_dB
         pt_current = 0.1 # in Watts, initial transmit power.
@@ -331,11 +359,8 @@ def run_agent(env, plotting=False):
                    successful = True
                    reward = R_max
                    aborted = False
-            
-            
-            total_reward += reward
-            rewards_list.append(total_reward)
-            #print(reward)
+                   
+            avgq_list.append(agent.averageQ())
 #            
             # I truly care about the net change: network - PC
             action_progress.append(action)
@@ -360,11 +385,12 @@ def run_agent(env, plotting=False):
                 print(pc_progress)
                 print('SINR progress: ')
                 print(score_progress) # this is actually the SINR progress due to the score or after both player A and B have played.
-               # print('Rewards:')
-               # print(rewards_list)
+               # print('Average Q:')
+               # print(avgq_list)
                 
-                if (plotting):
-                    plot_pc_actions(pc_progress, episode_index+1)
+               # if (plotting):
+                    #plot_pc_actions(pc_progress, episode_index+1)
+                    
                 print('-'*80)       
                 break                    
 
@@ -393,6 +419,9 @@ def run_agent(env, plotting=False):
             # Show the losses here
             losses = agent.get_losses()
             
+    if (plotting):
+        plot_rewards(avgq_list)
+              
     print('Overall retainability')
     dcr =sum(1 for i in retainability if i < 0) / len(retainability)
     retainability = 1. - dcr
@@ -543,7 +572,7 @@ def run_agent_upper_bound(env):
 
 ########################################################################################
     
-run_agent(env)  # Overall retainability 78.75%  <- to obtain, run again and fix the max episode to the optimal
+run_agent(env, plotting=True)  # Overall retainability 78.75%  <- to obtain, run again and fix the max episode to the optimal
 #run_agent_fpa(env) # 55.00%
 #run_agent_upper_bound(env) # 100.00%
 

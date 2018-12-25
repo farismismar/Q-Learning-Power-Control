@@ -73,6 +73,9 @@ class QLearningAgent:
         self.action = next_action
         return next_action
 
+    def averageQ(self):
+        return self.q.mean()
+    
     def remember(self, prev_observation, action, reward, observation, done):
         return # this is a dummy function for compatibility
     
