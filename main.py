@@ -10,22 +10,27 @@ import random
 import numpy as np
 #from numpy import linalg as LA
 
+import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib import rc
 import matplotlib.ticker as tick
 
 from environment import SINR_environment
 from QLearningAgent import QLearningAgent as QLearner
 #from DQNLearningAgent import DQNLearningAgent as QLearner
 
+MAX_EPISODES = 707 # successful ones [85, 115, 129, 258, 259, 284, 285, 286, 707]
+
+# Rewards
+R_max = 2.
+R_min = -100.
+
 SINR_MIN = -3 #dB  
 baseline_SINR_dB = 4.0
-final_SINR_dB = baseline_SINR_dB + 2.0 # this is the improvement
-MAX_EPISODES = 707 # successful ones [85, 115, 129, 258, 259, 284, 285, 286, 707]
+xi = 2.00 # dB
+final_SINR_dB = baseline_SINR_dB + xi # this is the improvement
 N_interferers = 4 # this is a hardcoded parameter: 4 base stations.
 
 L_geom = 10. #  meters
-
 pt_max = 2 # in Watts
 
 # all in dB here
@@ -42,9 +47,8 @@ K = 1.38e-23
 num_antenna_streams = None # Not needed
 N0 = K*T*B*1e3 # Thermal noise.  Assume Noise Figure = 0 dB.
 
-
 import os
-os.chdir('/Users/farismismar/Desktop/4- Q-Learning Algorithm for VoLTE Closed-Loop Power Control in Indoor Small Cells')
+os.chdir('/Users/farismismar/Desktop/E_Projects/UT Austin Ph.D. EE/Papers/Journals/2- A Framework for Automated Cellular Network Tuning with Reinforcement Learning/Major Revision 12-2018 Submission/Simulation')
 
 seed = 0 
 
@@ -67,18 +71,32 @@ def plot_pc_actions(tpc, episode):
     tpc.insert(0, 0)
     tpc = np.array(tpc)
    
-    fig, ax1 = plt.subplots(figsize=(7,5))
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
+    fig, ax1 = plt.subplots(figsize=(8,5))
+    
+    params = {'backend': 'ps',
+              'axes.labelsize': 10, # fontsize for x and y labels (was 10)
+              'axes.titlesize': 10,
+              'font.size': 10, # was 10
+              'legend.fontsize': 10, # was 10
+              'xtick.labelsize': 10,
+              'ytick.labelsize': 10,
+              'text.usetex': True,
+              'font.family': 'serif'
+    }
+
+    plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
+    matplotlib.rc('figure', titlesize=10) 
+    matplotlib.rcParams.update(params)
+  
     plt.grid(True)
     fpa = ax1.axhline(y=0, xmin=0, color="green", linewidth=1.5, label='Power commands -- FPA')
     closedloop, = ax1.step(np.arange(len(tpc)), tpc, color='b', label='Power commands -- Proposed')#
     ax1.set_xlabel('Transmit Time Interval (1 ms)')
-    ax1.set_ylabel('Power commands (dB)')
+    ax1.set_ylabel(r'$\text{PC}[t]\kappa[t]$ (dB)')
     ax1.set_yticks([-3,-2,-1,0,1,2,3])
     ax1.xaxis.set_major_formatter(tick.FormatStrFormatter('%0g'))
     ax1.xaxis.set_ticks(np.arange(0, tau + 1))
-    plt.title(r'Episode $\tau = {}$ -- Power Commands '.format(episode))
+    plt.title(r'Power commands ')
     plt.legend(handles=[fpa, closedloop])# vanilla, deep])
     
     plt.xlim(xmin=0,xmax=tau)
@@ -218,9 +236,7 @@ player_B_contribs = np.array([0, -3, -1, 1, 3]) # TPCs (up to 2 TPCs per TTI)
 player_A_contribs = np.append([0,0,0], player_A_contribs)
 alarm_reg = [0,0,0]
 
-batch_size = 32 
-R_max = 2.
-R_min = -100.
+batch_size = 32  # only used when using DQN to solve this
 env = SINR_environment(baseline_SINR_dB, final_SINR_dB, seed)
 agent = QLearner(seed=seed, state_size=state_count, action_size=action_count_b, batch_size=batch_size)
 succ = [] # a list to save the good episodes
@@ -250,7 +266,7 @@ def get_A_contrib():
 
     return None
 
-def run_agent(env, plotting = False):
+def run_agent(env, plotting=False):
     global alarm_reg
     max_episodes_to_run = MAX_EPISODES # needed to ensure epsilon decays to min
     max_timesteps_per_episode = 20 # one AMR frame ms.
@@ -262,7 +278,9 @@ def run_agent(env, plotting = False):
         state = env.reset()
         reward = R_min
         action = agent.begin_episode(state)
-    
+        total_reward = R_min
+        rewards_list = [R_min]
+
         cell_score = baseline_SINR_dB
         pt_current = 0.1 # in Watts, initial transmit power.
 
@@ -271,16 +289,16 @@ def run_agent(env, plotting = False):
         action_progress = ['start', 0]
         score_progress = [cell_score]
         alarm_reg = [0,0,0]
-        pc_progress = []        
+        pc_progress = []
         network_progress = []
         
         for timestep_index in range(max_timesteps_per_episode):
-            # Let Network (Player A) function totally random
+            # Player A: Network function totally random
             network_issue = get_A_contrib()
             cell_score += network_issue #player_A_contribs[np.random.randint(action_count_a)]
             action_progress.append('network')  # The network action is empty
             
-            # Perform the power control action and observe the new state.
+            # Player B: Perform the power control action and observe the new state.
             action = agent.act(state, reward)
             next_state, reward, _, _ = env.step(action)
             power_command = player_B_contribs[action]
@@ -291,7 +309,9 @@ def run_agent(env, plotting = False):
             if (pt_current >= pt_max):
                 pt_current = pt_max
             else:
-                cell_score += power_command            
+                cell_score += power_command
+                if (cell_score > final_SINR_dB):
+                    cell_score = final_SINR_dB
 
             aborted = (cell_score < SINR_MIN)
             done = (cell_score >= final_SINR_dB)
@@ -312,6 +332,9 @@ def run_agent(env, plotting = False):
                    reward = R_max
                    aborted = False
             
+            
+            total_reward += reward
+            rewards_list.append(total_reward)
             #print(reward)
 #            
             # I truly care about the net change: network - PC
@@ -337,51 +360,24 @@ def run_agent(env, plotting = False):
                 print(pc_progress)
                 print('SINR progress: ')
                 print(score_progress) # this is actually the SINR progress due to the score or after both player A and B have played.
+               # print('Rewards:')
+               # print(rewards_list)
                 
                 if (plotting):
-                     # Do some nice plotting here
-                    fig = plt.figure()
-    
-                    plt.rc('text', usetex=True)
-                    plt.rc('font', family='serif')
-                    plt.xlabel('Transmit Time Interval (1 ms)')
-    
-                    # Only integers                                
-                    ax = fig.gca()
-                    ax.xaxis.set_major_formatter(tick.FormatStrFormatter('%0g'))
-                    ax.xaxis.set_ticks(np.arange(0, max_timesteps_per_episode + 1))
-    
-                    ax.set_autoscaley_on(False)
-    
-                    plt.plot(score_progress, marker='o', linestyle='--', color='b')
-                    plt.xlim(xmin=0, xmax=max_timesteps_per_episode)
-    
-                    plt.axhline(y=SINR_MIN, xmin=0, color="red", linewidth=1.5)
-                    plt.axhline(y=final_SINR_dB, xmin=0, color="green",  linewidth=1.5)
-                    plt.ylabel('Average DL Received SINR (dB)')
-                    plt.title('Episode {0} / {1} ($\epsilon = {2:0.3}$)'.format(episode_index + 1, max_episodes_to_run, agent.exploration_rate))
-                    plt.grid(True)
-                    plt.ylim(-8,10)
-                    plt.savefig('figures/episode_{}.pdf'.format(episode_index + 1), format="pdf")
-                    if (plotting):
-                        plt.show(block=True)
-                    plt.close(fig)
-                    
-                    plot_pc_actions(pc_progress, episode_index + 1)
-                    
+                    plot_pc_actions(pc_progress, episode_index+1)
                 print('-'*80)       
                 break                    
 
         if (successful):
             succ.append(episode_index+1)
         
-        # For multi-plotting purposes
-        if (episode_index + 1 == 725 or episode_index + 1 == 2): # 260 398
-            file = open("plot_sinr.txt","a") 
-            for item in score_progress:
-                file.write("{},".format(item))
-            file.write("\n")
-            file.close()
+#        # For multi-plotting purposes
+#        if (episode_index + 1 == 725 or episode_index + 1 == 2): # 260 398
+#            file = open("plot_sinr.txt","a") 
+#            for item in score_progress:
+#                file.write("{},".format(item))
+#            file.write("\n")
+#            file.close()
 
 #        # Remove these four lines after finding the correct episode            
 #        if (successful and episode_index + 1 >= 2000):
@@ -424,19 +420,19 @@ def run_agent(env, plotting = False):
             plt.ylim(ymin=-400)
             plt.axhline(y=0, xmin=0, color="gray", linestyle='dashed', linewidth=1.5)
             plt.savefig('figures/loss_episode.pdf', format="pdf")
-            if (plotting):
-                plt.show(block=True)
+
+            plt.show(block=True)
             plt.close(fig)
     except:
         None # technically do nothing-- this is the vanilla Q
         
-    if (not successful):
+    if (len(succ) == 0):
         print("Goal cannot be reached after {} episodes.  Try to increase maximum.".format(max_episodes_to_run))
     
     #plt.ioff()
 
 
-def run_agent_fpa(env, plotting = False):
+def run_agent_fpa(env):
     global alarm_reg 
     max_episodes_to_run = MAX_EPISODES # needed to ensure epsilon decays to min
     max_timesteps_per_episode = 20 # one AMR frame.
@@ -452,7 +448,7 @@ def run_agent_fpa(env, plotting = False):
       #  network_progress = []
         retainability = [] # overall
         for timestep_index in range(max_timesteps_per_episode):
-            # Let Network (Player A) function totally random
+            # Player A: Network function totally random
             network_issue = get_A_contrib()
             cell_score += network_issue #player_A_contrib
            # action_progress.append('network')  # The network action is empty
@@ -460,6 +456,7 @@ def run_agent_fpa(env, plotting = False):
             if (cell_score < SINR_MIN):
                 cell_score = SINR_MIN
             
+            # Player B: No PC here.
             done = (timestep_index == max_timesteps_per_episode - 1)
 
             # I truly care about the net change: network - PC
@@ -476,55 +473,78 @@ def run_agent_fpa(env, plotting = False):
                 score_progress.append('end')
                 
                 print('SINR progress: ')
-                print(score_progress)    
-               
-                # Do some nice plotting here
-                if (plotting):
-                    fig = plt.figure()
-                    plt.rc('text', usetex=True)
-                    plt.rc('font', family='serif')
-                    plt.xlabel('Transmit Time Intervals (1 ms)')
-    
-                    # Only integers                                
-                    ax = fig.gca()
-                    ax.xaxis.set_major_formatter(tick.FormatStrFormatter('%0g'))
-                    ax.xaxis.set_ticks(np.arange(0, max_timesteps_per_episode + 1))
-    
-                    ax.set_autoscaley_on(False)
-    
-                    plt.plot(score_progress, marker='o', linestyle='--', color='b')
-                    plt.xlim(xmin=0, xmax=max_timesteps_per_episode)
-    
-                    plt.axhline(y=SINR_MIN, xmin=0, color="red", linewidth=1.5)
-                    plt.axhline(y=final_SINR_dB, xmin=0, color="green",  linewidth=1.5)
-                    plt.ylabel('Average DL Received SINR (dB)')
-                    plt.title('Episode {0} / {1}'.format(episode_index + 1, max_episodes_to_run))
-                    plt.grid(True)
-                    plt.ylim(-8,10)
-                    
-                    plt.savefig('figures_fpa/episode_{}.pdf'.format(episode_index + 1), format="pdf")
-                    plt.show(block=True)
-                    plt.close(fig)
-                    
+                print(score_progress)
                 print('-'*80)       
                 break                    
-#        # For multi-plotting purposes
-#        if (episode_index + 1 == 879):# or episode_index + 1 == 2):
-#            file = open("plot_sinr_fpa.txt","a") 
-#            for item in score_progress:
-#                file.write("{},".format(item))
-#            file.write("\n")
-#            file.close()
 
-            
+    # Print retinability for the last episode
     print('Overall retainability')
     dcr =sum(1 for i in retainability if i < 0) / len(retainability)
     retainability = 1. - dcr
     print('{}%'.format(100*retainability))
     
+
+def run_agent_upper_bound(env):
+    global alarm_reg 
+    max_timesteps_per_episode = 20 # one AMR frame.
+   
+    cell_score = baseline_SINR_dB + xi
+
+    # Recording arrays
+    #state_progress = ['start', 0]
+   # action_progress = ['start', 0]
+    score_progress = [cell_score]
+    alarm_reg = [0,0,0]      
+  #  network_progress = []
+    retainability = [] # overall
+    pt_current = 0.1 # in Watts
+
+    current_power = 10*np.log10(pt_current*1000) # in dB    
+    for timestep_index in range(max_timesteps_per_episode):
+        # Player A: Network function totally random
+        network_issue = 0 #get_A_contrib()
+        cell_score += network_issue #player_A_contrib
+        
+        if (cell_score < SINR_MIN):
+            cell_score = SINR_MIN
+        
+        ###############
+        # TODO: Pending fixing this blco 12/252018
+        # Player B: Optimal power control
+
+   
+    
+        ################
+        done = (timestep_index == max_timesteps_per_episode - 1)
+
+        # I truly care about the net change: network - PC
+       # action_progress.append(np.round(cell_score, 2))
+       # network_progress.append(np.round(network_issue,2))
+#            pc_progress.append(np.round(power_command,2))
+        score_progress.append(np.round(cell_score, 2))
+ #           state_progress.append(np.round(next_state[0], 2))            
+        retainability.append(np.round(cell_score, 2))
+                                            
+        if (done): # or aborted):
+            # print("Episode {0} finished after {1} timesteps.".format(episode_index + 1, timestep_index + 1))
+            #finished = True
+            score_progress.append('end')
+            print('SINR progress: ')
+            print(score_progress)
+            print('-'*80)       
+            break                    
+
+    # Print retinability for the last episode
+    print('Overall retainability')
+    dcr =sum(1 for i in retainability if i < 0) / len(retainability)
+    retainability = 1. - dcr
+    print('{}%'.format(100*retainability))
+
+
 ########################################################################################
     
-#run_agent(env, True)  # Overall retainability 78.75%  <- to obtain, run again and fix the max episode to the optimal
-run_agent_fpa(env, False) # 55.00%
+run_agent(env)  # Overall retainability 78.75%  <- to obtain, run again and fix the max episode to the optimal
+#run_agent_fpa(env) # 55.00%
+#run_agent_upper_bound(env) # 100.00%
 
 ########################################################################################
