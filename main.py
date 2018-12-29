@@ -144,11 +144,11 @@ def plot_network(dX, dY, X_bs, Y_bs, u_1, u_2):
     plt.ylim(-dY / 2, dY / 2)
 
     plt.plot(u_1 - dX / 2, u_2 - dY / 2,'bo')    
-    plt.plot(X_bs - dX / 2, Y_bs - dY / 2, 'ro')
+    plt.plot(X_bs - dX / 2, Y_bs - dY / 2, 'r^')
     plt.grid(True)
     plt.title(r'\textbf{Base station and UE positions}')
-    plt.xlabel('X pos (m)')
-    plt.ylabel('Y pos (m)')
+    plt.xlabel(r'$x$ pos (m)')
+    plt.ylabel(r'$y$ pos (m)')
     plt.savefig('figures/network.pdf', format='pdf')
     plt.show()
 
