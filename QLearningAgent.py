@@ -15,7 +15,7 @@ import numpy as np
 class QLearningAgent:
     def __init__(self, seed,
                  learning_rate=0.2,
-                 discount_factor=0.995,
+                 discount_factor=1.0,
                  exploration_rate=1.0,
                  exploration_decay_rate=0.99, batch_size=32,
                  state_size=3, action_size=5):
@@ -73,9 +73,6 @@ class QLearningAgent:
         self.action = next_action
         return next_action
 
-    def averageQ(self):
-        return self.q.mean()
-    
     def remember(self, prev_observation, action, reward, observation, done):
         return # this is a dummy function for compatibility
     
